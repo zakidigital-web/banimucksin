@@ -44,8 +44,14 @@ export async function GET() {
     const maleCount = members.filter(m => m.gender === 'L').length;
     const femaleCount = members.filter(m => m.gender === 'P').length;
 
-    // Collect all spouseIds — these members are shown as part of their couple node
+    // Collect all spouseIds — these are members referenced as someone else's spouse
     const spouseIds = new Set(members.filter(m => m.spouseId).map(m => m.spouseId!));
+
+    // Members who have children (someone references them as parentId)
+    const parentIds = new Set(members.filter(m => m.parentId).map(m => m.parentId!));
+
+    // A "pure spouse" is someone who is a spouse but NOT a parent — they should only appear in their partner's couple node
+    const pureSpouseIds = new Set([...spouseIds].filter(id => !parentIds.has(id)));
 
     // Build spouse relationships
     const membersWithSpouse = members.map(member => {
@@ -58,10 +64,10 @@ export async function GET() {
       };
     });
 
-    // Build tree structure recursively, excluding spouses (they appear inside couple nodes)
+    // Build tree structure recursively, excluding pure spouses (they appear inside couple nodes)
     function buildTree(parentId: string | null): any[] {
       return membersWithSpouse
-        .filter(m => m.parentId === parentId && !spouseIds.has(m.id))
+        .filter(m => m.parentId === parentId && !pureSpouseIds.has(m.id))
         .map(member => ({
           ...member,
           children: buildTree(member.id),
