@@ -1,0 +1,87 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Anggota Keluarga
+model FamilyMember {
+  id            String   @id @default(cuid())
+  name          String
+  gender        String   // "L" (Laki-laki) atau "P" (Perempuan)
+  birthDate     String?
+  birthPlace    String?
+  photo         String?
+  parentId      String?
+  parent        FamilyMember?      @relation("FamilyTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children      FamilyMember[]     @relation("FamilyTree")
+  spouseId      String?            @unique
+  spouse        FamilyMember?      @relation("Spouse", fields: [spouseId], references: [id], onDelete: SetNull)
+  spouseOf      FamilyMember?      @relation("Spouse")
+  generation    Int      @default(1) // Generasi ke-berapa
+  job           String?
+  address       String?
+  phone         String?
+  education     String?
+  notes         String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// Galeri Foto Keluarga
+model Gallery {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  imageUrl    String
+  category    String   // "family", "event", "gathering", etc.
+  date        String?
+  memberIds   String?  // Comma-separated member IDs
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Event/Acara Keluarga
+model FamilyEvent {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  date        String
+  location    String?
+  image       String?  // Event image for splash screen
+  photos      String?  // Comma-separated image URLs
+  showSplash  Boolean  @default(true) // Show splash screen before event
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Informasi Keluarga
+model FamilyInfo {
+  id          String   @id @default(cuid())
+  familyName  String
+  description String?
+  history     String?
+  vision      String?
+  mission     String?
+  logo        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Admin User untuk login
+model AdminUser {
+  id          String   @id @default(cuid())
+  username    String   @unique
+  password    String   // Simple password hash
+  name        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

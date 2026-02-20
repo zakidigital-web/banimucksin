@@ -1,0 +1,18 @@
+{
+  "name": "Silsilah Keluarga Bani Mucksin",
+  "short_name": "Bani Mucksin",
+  "description": "Aplikasi silsilah keluarga digital untuk keluarga besar Bani Mucksin / Supiyah",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#059669",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
