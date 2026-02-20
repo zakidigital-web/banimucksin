@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { db as prisma } from '@/lib/db';
 import { cookies } from 'next/headers';
-
-// Create a fresh PrismaClient instance for this route (v2)
-const prisma = new PrismaClient();
 
 // Simple hash function (for demo purposes - in production use bcrypt)
 function simpleHash(str: string): string {
@@ -41,7 +38,7 @@ export async function POST(request: NextRequest) {
           name: 'Administrator',
         },
       });
-      
+
       // Check if provided credentials match default
       if (username === 'admin' && password === defaultPassword) {
         const cookieStore = await cookies();
@@ -51,9 +48,9 @@ export async function POST(request: NextRequest) {
           sameSite: 'lax',
           maxAge: 60 * 60 * 24 * 7, // 1 week
         });
-        
-        return NextResponse.json({ 
-          success: true, 
+
+        return NextResponse.json({
+          success: true,
           data: { username: admin.username, name: admin.name },
           message: 'Login berhasil! Password default: admin123'
         });
@@ -74,8 +71,8 @@ export async function POST(request: NextRequest) {
       maxAge: 60 * 60 * 24 * 7, // 1 week
     });
 
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       data: { username: admin.username, name: admin.name }
     });
   } catch (error) {
