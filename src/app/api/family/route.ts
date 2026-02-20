@@ -13,7 +13,7 @@ export async function GET() {
 
     // Get family info
     let familyInfo = await db.familyInfo.findFirst();
-    
+
     if (!familyInfo) {
       familyInfo = {
         id: 'default',
@@ -44,12 +44,12 @@ export async function GET() {
     const maleCount = members.filter(m => m.gender === 'L').length;
     const femaleCount = members.filter(m => m.gender === 'P').length;
 
-    // Find root members (no parent)
-    const rootMembers = members.filter(m => !m.parentId);
+    // Collect all spouseIds — these members are shown as part of their couple node
+    const spouseIds = new Set(members.filter(m => m.spouseId).map(m => m.spouseId!));
 
     // Build spouse relationships
     const membersWithSpouse = members.map(member => {
-      const spouse = member.spouseId 
+      const spouse = member.spouseId
         ? members.find(m => m.id === member.spouseId)
         : null;
       return {
@@ -58,10 +58,10 @@ export async function GET() {
       };
     });
 
-    // Build tree structure recursively
+    // Build tree structure recursively, excluding spouses (they appear inside couple nodes)
     function buildTree(parentId: string | null): any[] {
       return membersWithSpouse
-        .filter(m => m.parentId === parentId)
+        .filter(m => m.parentId === parentId && !spouseIds.has(m.id))
         .map(member => ({
           ...member,
           children: buildTree(member.id),
