@@ -8,6 +8,9 @@ export async function GET(request: NextRequest) {
       orderBy: [{ generation: 'asc' }, { name: 'asc' }],
     });
 
+    // Build lookup maps for parent and spouse names
+    const memberMap = new Map(members.map(m => [m.id, m.name]));
+
     // Prepare data for Excel
     const data = members.map((member, index) => ({
       'No': index + 1,
@@ -16,6 +19,8 @@ export async function GET(request: NextRequest) {
       'Tanggal Lahir': member.birthDate || '',
       'Tempat Lahir': member.birthPlace || '',
       'Generasi': member.generation,
+      'Nama Orangtua': member.parentId ? memberMap.get(member.parentId) || '' : '',
+      'Nama Pasangan': member.spouseId ? memberMap.get(member.spouseId) || '' : '',
       'Pekerjaan': member.job || '',
       'Alamat': member.address || '',
       'No. Telepon': member.phone || '',
@@ -35,6 +40,8 @@ export async function GET(request: NextRequest) {
       { wch: 15 },  // Tanggal Lahir
       { wch: 20 },  // Tempat Lahir
       { wch: 10 },  // Generasi
+      { wch: 25 },  // Nama Orangtua
+      { wch: 25 },  // Nama Pasangan
       { wch: 25 },  // Pekerjaan
       { wch: 40 },  // Alamat
       { wch: 15 },  // No. Telepon

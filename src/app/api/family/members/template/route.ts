@@ -12,6 +12,8 @@ export async function GET() {
         'Tanggal Lahir': '1950-01-15',
         'Tempat Lahir': 'Jakarta',
         'Generasi': 1,
+        'Nama Orangtua': '',
+        'Nama Pasangan': 'Supiyah',
         'Pekerjaan': 'Pensiunan',
         'Alamat': 'Jl. Keluarga No. 1, Jakarta',
         'No. Telepon': '08123456789',
@@ -25,6 +27,8 @@ export async function GET() {
         'Tanggal Lahir': '1955-03-20',
         'Tempat Lahir': 'Surabaya',
         'Generasi': 1,
+        'Nama Orangtua': '',
+        'Nama Pasangan': '',
         'Pekerjaan': 'Ibu Rumah Tangga',
         'Alamat': 'Jl. Keluarga No. 1, Jakarta',
         'No. Telepon': '08123456790',
@@ -33,11 +37,13 @@ export async function GET() {
       },
       {
         'No': 3,
-        'Nama Lengkap': 'Ahmad Mucksin',
+        'Nama Lengkap': 'Ahmad Susanto',
         'Jenis Kelamin': 'Laki-laki',
         'Tanggal Lahir': '1975-06-10',
         'Tempat Lahir': 'Jakarta',
         'Generasi': 2,
+        'Nama Orangtua': 'Mucksin',
+        'Nama Pasangan': 'Dewi Rahayu',
         'Pekerjaan': 'Wiraswasta',
         'Alamat': 'Jl. Merdeka No. 5, Bandung',
         'No. Telepon': '08123456791',
@@ -48,7 +54,7 @@ export async function GET() {
 
     // Create workbook
     const wb = XLSX.utils.book_new();
-    
+
     // Create main template sheet
     const ws = XLSX.utils.json_to_sheet(templateData);
 
@@ -60,6 +66,8 @@ export async function GET() {
       { wch: 15 },  // Tanggal Lahir
       { wch: 20 },  // Tempat Lahir
       { wch: 10 },  // Generasi
+      { wch: 25 },  // Nama Orangtua
+      { wch: 25 },  // Nama Pasangan
       { wch: 25 },  // Pekerjaan
       { wch: 40 },  // Alamat
       { wch: 15 },  // No. Telepon
@@ -80,9 +88,11 @@ export async function GET() {
       { 'Tanggal Lahir': 'Format: YYYY-MM-DD (contoh: 1990-05-15)' },
       { 'Tempat Lahir': 'Kota/kabupaten tempat lahir' },
       { 'Generasi': 'Angka generasi (1, 2, 3, dst). Generasi 1 = Kepala keluarga' },
+      { 'Nama Orangtua': 'Nama orangtua dari daftar anggota (harus sama persis)' },
+      { 'Nama Pasangan': 'Nama pasangan/suami/istri dari daftar anggota (harus sama persis)' },
       { 'Pekerjaan': 'Pekerjaan saat ini' },
       { 'Alamat': 'Alamat lengkap saat ini' },
-      { 'No. Telepon': 'Nomor telepon/HP' },
+      { 'No. Telepon': 'Nomor telepon/HP (untuk WhatsApp)' },
       { 'Pendidikan': 'Pendidikan terakhir' },
       { 'Catatan': 'Catatan tambahan' },
       { '': '' },
@@ -91,7 +101,9 @@ export async function GET() {
       { '2. Format tanggal harus YYYY-MM-DD': '' },
       { '3. Jenis Kelamin harus "Laki-laki" atau "Perempuan"': '' },
       { '4. Generasi diisi dengan angka (1, 2, 3, dst)': '' },
-      { '5. Hapus baris contoh sebelum import': '' },
+      { '5. Nama Orangtua dan Pasangan harus sesuai dengan nama yang ada': '' },
+      { '6. Hapus baris contoh sebelum import': '' },
+      { '7. Cukup isi Nama Pasangan di salah satu pihak saja': '' },
     ];
 
     const wsInstructions = XLSX.utils.json_to_sheet(instructions);
