@@ -2,17 +2,19 @@
 /**
  * Import "daftar anggota.xlsx" into Turso, REPLACING all existing FamilyMember data.
  * 
- * Data handling:
- * - Gen 1: Mucksin & Supiyah — root patriarch/matriarch
- * - Gen 2: Children of Mucksin & Supiyah (Nama Orangtua is empty, inferred from family context)
- * - Gen 3+: Nama Orangtua format: "Name1 - Name2" (one is the parent who is child of Gen 1)
- * - Nama Pasangan has prefixes: "Bpk.", "Bu", "Hj.", "H.", "(alm)", etc.
+ * Data structure:
+ * - Gen 1: Mucksin & Supiyah — root patriarch/matriarch  
+ * - Gen 2: Listed in pairs (child, then their spouse). Odd rows = Mucksin's child, even rows = in-law
+ * - Gen 3+: "Nama Orangtua" = "Name1 - Name2" format
+ * - Spouse names may have prefixes: "Bpk.", "Bu", "Hj.", "H.", "(alm)", etc.
  * 
  * Strategy:
  * 1. Delete all existing FamilyMember records
  * 2. Insert all members without relationships
- * 3. Link spouses by fuzzy-matching names
- * 4. Link parents: Gen 2 → Mucksin, Gen 3+ → first matching name from "Nama Orangtua"
+ * 3. Link spouses by fuzzy-matching names  
+ * 4. Link parents:
+ *    - Gen 2: Only the FIRST member in each couple pair → parentId = Mucksin
+ *    - Gen 3+: Match first found name from "Nama Orangtua" split by " - "
  */
 
 import { createClient } from '@libsql/client';
@@ -48,7 +50,6 @@ function cleanName(raw: string): string {
         .trim();
 }
 
-// Normalize for matching: lowercase, remove titles/honorifics
 function normalizeName(raw: string): string {
     return cleanName(raw).toLowerCase().replace(/\s+/g, ' ');
 }
@@ -69,13 +70,15 @@ interface MemberRow {
     parentRaw: string;
     spouseRaw: string;
     notes: string;
+    rowIndex: number; // original row index in excel (0-based among data rows)
 }
 
 const memberRows: MemberRow[] = [];
 const nameToId = new Map<string, string>();
 const normalizedToId = new Map<string, string>();
 
-for (const row of rows) {
+for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
     const name = String(row['Nama Lengkap'] || '').trim();
     if (!name) continue;
 
@@ -92,7 +95,7 @@ for (const row of rows) {
         args: [id, name, gender, generation, notes || null],
     });
 
-    memberRows.push({ id, name, gender, generation, parentRaw, spouseRaw, notes });
+    memberRows.push({ id, name, gender, generation, parentRaw, spouseRaw, notes, rowIndex: i });
     nameToId.set(name, id);
     normalizedToId.set(normalizeName(name), id);
 
@@ -104,33 +107,23 @@ console.log(`\n✅ Inserted ${memberRows.length} members\n`);
 // ─── Step 3: Link spouses ──────────────────────────────
 console.log('💑 Linking spouses...');
 
-// Find the best match for a spouse name
 function findMemberId(rawName: string): string | null {
     if (!rawName) return null;
-
-    // Direct match
     if (nameToId.has(rawName)) return nameToId.get(rawName)!;
-
-    // Clean and try
     const cleaned = cleanName(rawName);
     if (nameToId.has(cleaned)) return nameToId.get(cleaned)!;
-
-    // Normalized match
     const norm = normalizeName(rawName);
     if (normalizedToId.has(norm)) return normalizedToId.get(norm)!;
-
-    // Fuzzy: try if any name contains or is contained in the target
+    // Fuzzy: substring match
     for (const [memberName, memberId] of nameToId) {
         const memberNorm = normalizeName(memberName);
         if (memberNorm.includes(norm) || norm.includes(memberNorm)) {
             return memberId;
         }
     }
-
     return null;
 }
 
-// Track already-linked spouses to avoid duplicates
 const linkedSpouses = new Set<string>();
 
 for (const member of memberRows) {
@@ -155,38 +148,58 @@ console.log('');
 // ─── Step 4: Link parents ──────────────────────────────
 console.log('👨‍👧 Linking parents...');
 
-// Find Mucksin's ID for Gen 2 parent assignment
 const mucksinId = nameToId.get('Mucksin');
+
+// For Gen 2: identify which members are actual Mucksin children vs in-law spouses
+// Strategy: Gen 2 members are listed in pairs in the Excel.
+// The FIRST in each pair is the Mucksin child, the SECOND is the in-law spouse.
+// We detect pairs by checking: if memberA has spouseRaw pointing to memberB, they're a pair.
+// The one with the LOWER rowIndex in each pair is the actual child.
+
+const gen2Members = memberRows.filter(m => m.generation === 2);
+const gen2PairProcessed = new Set<string>();
+
+// Build a set of actual Mucksin children (first in each Gen 2 couple pair)
+const mucksinChildIds = new Set<string>();
+
+for (const member of gen2Members) {
+    if (gen2PairProcessed.has(member.id)) continue;
+
+    // Find this member's spouse
+    const spouseId = member.spouseRaw ? findMemberId(member.spouseRaw) : null;
+    const spouseMember = spouseId ? memberRows.find(m => m.id === spouseId) : null;
+
+    if (spouseMember && spouseMember.generation === 2) {
+        // This is a Gen 2 couple — the one with lower rowIndex is the Mucksin child
+        gen2PairProcessed.add(member.id);
+        gen2PairProcessed.add(spouseMember.id);
+
+        if (member.rowIndex < spouseMember.rowIndex) {
+            mucksinChildIds.add(member.id);
+        } else {
+            mucksinChildIds.add(spouseMember.id);
+        }
+    } else {
+        // Single Gen 2 member without a spouse pair — treat as Mucksin child
+        mucksinChildIds.add(member.id);
+        gen2PairProcessed.add(member.id);
+    }
+}
+
+console.log(`  📋 Mucksin children identified: ${[...mucksinChildIds].map(id => memberRows.find(m => m.id === id)?.name).join(', ')}\n`);
 
 for (const member of memberRows) {
     let parentId: string | null = null;
 
     if (member.generation === 2 && !member.parentRaw) {
-        // Gen 2 with no explicit parent → child of Mucksin
-        // But only for members who are Mucksin's actual children (not in-law spouses)
-        // Check if this member is in the "Bani Mucksin" family by checking their notes or context
-        // For this data: Gen 2 members whose family name connects to Mucksin
-        // Since all Gen 2 are listed together with their spouses, we need to identify 
-        // the actual children vs married-in spouses.
-        // Strategy: Gen 2 members who appear as the FIRST name in "Nama Orangtua" of Gen 3 children
-        // are the actual children of Mucksin.
-        // But this creates a chicken-and-egg: let's first assign all Gen 2 to Mucksin,
-        // then the tree filter will handle spouse display.
-        // Actually, only one side of each couple should be Mucksin's child.
-        // Let's check if any Gen 3 member's "Nama Orangtua" references this person.
-        const isReferencedAsParent = memberRows.some(m => {
-            if (m.generation <= member.generation) return false;
-            const parts = m.parentRaw.split(' - ').map(p => p.trim());
-            return parts.some(p => normalizeName(p) === normalizeName(member.name));
-        });
-
-        if (isReferencedAsParent && mucksinId) {
+        // Gen 2: only assign parentId = Mucksin if this member is an actual child
+        if (mucksinChildIds.has(member.id) && mucksinId) {
             parentId = mucksinId;
         }
+        // In-law spouses get NO parentId — they appear as "pure spouse" in the tree
     } else if (member.parentRaw) {
-        // Parse "Name1 - Name2" format
+        // Gen 3+: Parse "Name1 - Name2" format and find the first matching member
         const parts = member.parentRaw.split(' - ').map(p => p.trim());
-        // Try to find either name in our members
         for (const part of parts) {
             const found = findMemberId(part);
             if (found) {
@@ -208,12 +221,14 @@ for (const member of memberRows) {
 console.log('');
 
 // ─── Summary ───────────────────────────────────────────
-const result = await turso.execute('SELECT COUNT(*) as cnt FROM FamilyMember');
+const totalResult = await turso.execute('SELECT COUNT(*) as cnt FROM FamilyMember');
 const spouseResult = await turso.execute('SELECT COUNT(*) as cnt FROM FamilyMember WHERE spouseId IS NOT NULL');
 const parentResult = await turso.execute('SELECT COUNT(*) as cnt FROM FamilyMember WHERE parentId IS NOT NULL');
+const orphanResult = await turso.execute("SELECT COUNT(*) as cnt FROM FamilyMember WHERE parentId IS NULL AND generation > 1 AND id NOT IN (SELECT COALESCE(spouseId,'') FROM FamilyMember WHERE spouseId IS NOT NULL)");
 
 console.log('📊 Final Summary:');
-console.log(`   Total members:  ${result.rows[0].cnt}`);
-console.log(`   With spouse:    ${spouseResult.rows[0].cnt}`);
-console.log(`   With parent:    ${parentResult.rows[0].cnt}`);
+console.log(`   Total members:       ${totalResult.rows[0].cnt}`);
+console.log(`   With spouse linked:  ${spouseResult.rows[0].cnt}`);
+console.log(`   With parent linked:  ${parentResult.rows[0].cnt}`);
+console.log(`   Orphan (no parent, not a spouse): ${orphanResult.rows[0].cnt}`);
 console.log('\n✅ Import complete!');
