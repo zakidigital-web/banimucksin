@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     // Use Vercel Blob if token is available
     if (process.env.BLOB_READ_WRITE_TOKEN) {
       const blob = await put(file.name, file, {
-        access: 'public',
+        access: 'private',
         addRandomSuffix: true,
       });
 

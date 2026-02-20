@@ -1,5 +1,7 @@
 'use client';
 
+import { getPhotoUrl } from '@/lib/photo';
+
 import { motion } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -188,7 +190,7 @@ export default function MembersPage({ members }: MembersPageProps) {
                       "w-12 h-12 border-2",
                       isMale ? "border-sky-300" : "border-rose-300"
                     )}>
-                      <AvatarImage src={member.photo || undefined} />
+                      <AvatarImage src={getPhotoUrl(member.photo)} />
                       <AvatarFallback className={cn(
                         "text-white font-medium",
                         isMale ? "bg-sky-500" : "bg-rose-500"
@@ -254,7 +256,7 @@ export default function MembersPage({ members }: MembersPageProps) {
                     "w-20 h-20 border-4 mb-3",
                     selectedMember.gender === 'L' ? "border-sky-300" : "border-rose-300"
                   )}>
-                    <AvatarImage src={selectedMember.photo || undefined} />
+                    <AvatarImage src={getPhotoUrl(selectedMember.photo)} />
                     <AvatarFallback className={cn(
                       "text-white text-xl font-medium",
                       selectedMember.gender === 'L' ? "bg-sky-500" : "bg-rose-500"

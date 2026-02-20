@@ -1,11 +1,13 @@
 'use client';
 
+import { getPhotoUrl } from '@/lib/photo';
+
 import { motion } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { 
-  Image as ImageIcon, 
+import {
+  Image as ImageIcon,
   Calendar,
   Heart,
   Users,
@@ -47,17 +49,17 @@ export default function GalleryPage({ gallery }: GalleryPageProps) {
 
   const categories = ['all', ...new Set(gallery.map(g => g.category))];
 
-  const filteredGallery = activeCategory === 'all' 
-    ? gallery 
+  const filteredGallery = activeCategory === 'all'
+    ? gallery
     : gallery.filter(g => g.category === activeCategory);
 
-  const currentIndex = selectedImage 
-    ? filteredGallery.findIndex(g => g.id === selectedImage.id) 
+  const currentIndex = selectedImage
+    ? filteredGallery.findIndex(g => g.id === selectedImage.id)
     : -1;
 
   const navigateImage = (direction: 'prev' | 'next') => {
     if (!selectedImage) return;
-    const newIndex = direction === 'prev' 
+    const newIndex = direction === 'prev'
       ? (currentIndex - 1 + filteredGallery.length) % filteredGallery.length
       : (currentIndex + 1) % filteredGallery.length;
     setSelectedImage(filteredGallery[newIndex]);
@@ -126,7 +128,7 @@ export default function GalleryPage({ gallery }: GalleryPageProps) {
       >
         {filteredGallery.map((item, index) => {
           const config = categoryConfig[item.category] || categoryConfig.family;
-          
+
           return (
             <motion.div
               key={item.id}
@@ -134,13 +136,13 @@ export default function GalleryPage({ gallery }: GalleryPageProps) {
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: index * 0.05 }}
             >
-              <Card 
+              <Card
                 className="overflow-hidden cursor-pointer hover:shadow-lg transition-all duration-200 active:scale-[0.98]"
                 onClick={() => setSelectedImage(item)}
               >
                 <div className="aspect-square relative bg-muted">
                   <img
-                    src={item.imageUrl}
+                    src={getPhotoUrl(item.imageUrl)}
                     alt={item.title}
                     className="w-full h-full object-cover"
                   />
@@ -205,7 +207,7 @@ export default function GalleryPage({ gallery }: GalleryPageProps) {
 
               {/* Image */}
               <img
-                src={selectedImage.imageUrl}
+                src={getPhotoUrl(selectedImage.imageUrl)}
                 alt={selectedImage.title}
                 className="w-full max-h-[70vh] object-contain"
               />
