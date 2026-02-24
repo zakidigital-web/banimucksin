@@ -13,6 +13,8 @@ import {
   Maximize2,
   RotateCcw,
   Move,
+  Columns,
+  Rows,
 } from 'lucide-react';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils';
@@ -87,17 +89,18 @@ function CoupleNode({ member }: { member: FamilyMember }) {
   );
 }
 
-/* ─── Tree Node with vertical connector lines ───── */
-function TreeNode({ member, level = 0 }: { member: FamilyMember; level?: number }) {
+/* ─── Tree Node with vertical or horizontal connector lines ───── */
+function TreeNode({ member, level = 0, layout = 'vertical' }: { member: FamilyMember; level?: number; layout?: 'vertical' | 'horizontal' }) {
   const [expanded, setExpanded] = useState(level < 3);
   const hasChildren = member.children && member.children.length > 0;
+  const isVertical = layout === 'vertical';
 
   return (
-    <div className="flex flex-col items-center">
+    <div className={cn("flex items-center", isVertical ? "flex-col" : "flex-row")}>
       {/* Couple card */}
       <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ opacity: 0, y: isVertical ? 10 : 0, x: isVertical ? 0 : 10 }}
+        animate={{ opacity: 1, y: 0, x: 0 }}
         transition={{ duration: 0.25, delay: level * 0.05 }}
         className="relative"
       >
@@ -109,16 +112,17 @@ function TreeNode({ member, level = 0 }: { member: FamilyMember; level?: number 
             <button
               onClick={() => setExpanded(!expanded)}
               className={cn(
-                "absolute -bottom-3 left-1/2 -translate-x-1/2 z-10",
+                "absolute z-10",
+                isVertical ? "-bottom-3 left-1/2 -translate-x-1/2" : "-right-3 top-1/2 -translate-y-1/2",
                 "w-5 h-5 rounded-full border bg-white dark:bg-zinc-900 shadow-sm",
                 "flex items-center justify-center",
                 "hover:bg-emerald-50 hover:border-emerald-300 transition-colors"
               )}
             >
               {expanded ? (
-                <ChevronDown className="w-3 h-3 text-emerald-600" />
+                isVertical ? <ChevronDown className="w-3 h-3 text-emerald-600" /> : <ChevronRight className="w-3 h-3 text-emerald-600" />
               ) : (
-                <ChevronRight className="w-3 h-3 text-muted-foreground" />
+                isVertical ? <ChevronRight className="w-3 h-3 text-muted-foreground" /> : <ChevronDown className="w-3 h-3 text-muted-foreground" />
               )}
             </button>
           )}
@@ -127,29 +131,32 @@ function TreeNode({ member, level = 0 }: { member: FamilyMember; level?: number 
 
       {/* Children subtree */}
       {hasChildren && expanded && (
-        <div className="flex flex-col items-center mt-4">
-          {/* Vertical line from parent to horizontal rail */}
-          <div className="w-px h-4 bg-emerald-300 dark:bg-emerald-700" />
+        <div className={cn("flex items-center", isVertical ? "flex-col mt-4" : "flex-row ml-4")}>
+          {/* Connector line from parent to rail */}
+          <div className={cn("bg-emerald-300 dark:bg-emerald-700", isVertical ? "w-px h-4" : "h-px w-4")} />
 
-          {/* Children row */}
+          {/* Children block */}
           <div className="relative">
-            {/* Horizontal rail connecting children */}
+            {/* Rail connecting children */}
             {member.children.length > 1 && (
               <div
-                className="absolute top-0 h-px bg-emerald-300 dark:bg-emerald-700"
-                style={{
-                  left: `calc(${100 / (member.children.length * 2)}% )`,
-                  right: `calc(${100 / (member.children.length * 2)}% )`,
+                className={cn("absolute bg-emerald-300 dark:bg-emerald-700", isVertical ? "top-0 h-px" : "left-0 w-px")}
+                style={isVertical ? {
+                  left: `calc(${100 / (member.children.length * 2)}%)`,
+                  right: `calc(${100 / (member.children.length * 2)}%)`,
+                } : {
+                  top: `calc(${100 / (member.children.length * 2)}%)`,
+                  bottom: `calc(${100 / (member.children.length * 2)}%)`,
                 }}
               />
             )}
 
-            <div className="flex gap-3">
+            <div className={cn("flex", isVertical ? "gap-3 flex-row" : "gap-3 flex-col")}>
               {member.children.map((child) => (
-                <div key={child.id} className="flex flex-col items-center">
-                  {/* Vertical line from rail to child */}
-                  <div className="w-px h-4 bg-emerald-300 dark:bg-emerald-700" />
-                  <TreeNode member={child} level={level + 1} />
+                <div key={child.id} className={cn("flex items-center", isVertical ? "flex-col" : "flex-row")}>
+                  {/* Connector line from rail to child */}
+                  <div className={cn("bg-emerald-300 dark:bg-emerald-700", isVertical ? "w-px h-4" : "h-px w-4")} />
+                  <TreeNode member={child} level={level + 1} layout={layout} />
                 </div>
               ))}
             </div>
@@ -166,6 +173,7 @@ export default function TreePage({ members, rootMembers }: TreePageProps) {
   const contentRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(0.75);
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [layout, setLayout] = useState<'vertical' | 'horizontal'>('vertical');
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
@@ -211,11 +219,10 @@ export default function TreePage({ members, rootMembers }: TreePageProps) {
   };
   const handlePointerUp = () => setIsDragging(false);
 
-  // Auto-fit on mount and resize
   useEffect(() => {
     const t = setTimeout(fitToScreen, 200);
     return () => clearTimeout(t);
-  }, [fitToScreen, rootMembers]);
+  }, [fitToScreen, rootMembers, layout]);
 
   useEffect(() => {
     window.addEventListener('resize', fitToScreen);
@@ -259,8 +266,18 @@ export default function TreePage({ members, rootMembers }: TreePageProps) {
           >
             <Maximize2 className="w-3.5 h-3.5 text-emerald-600" />
           </Button>
-          <Button variant="outline" size="sm" onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} className="h-8 px-2">
+          <Button variant="outline" size="sm" onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} className="h-8 px-2" title="Reset Zoom">
             <RotateCcw className="w-3.5 h-3.5" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setLayout(l => l === 'vertical' ? 'horizontal' : 'vertical')}
+            className="h-8 px-3 ml-2 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/30 border-blue-200 dark:border-blue-900"
+            title="Ubah Layout"
+          >
+            {layout === 'vertical' ? <Rows className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> : <Columns className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />}
+            <span className="ml-1.5 text-xs font-medium text-blue-700 dark:text-blue-400">{layout === 'vertical' ? 'Vertikal' : 'Horizontal'}</span>
           </Button>
         </div>
       </div>
@@ -305,10 +322,10 @@ export default function TreePage({ members, rootMembers }: TreePageProps) {
             transition: isDragging ? 'none' : 'transform 0.2s ease-out',
           }}
         >
-          <div className="flex flex-col items-center p-6 min-w-max">
+          <div className={cn("flex p-6 min-w-max", layout === 'vertical' ? "flex-col items-center" : "flex-col items-start")}>
             {rootMembers.map((root, i) => (
               <div key={root.id} className={i > 0 ? 'mt-8' : ''}>
-                <TreeNode member={root} />
+                <TreeNode member={root} layout={layout} />
               </div>
             ))}
           </div>
